@@ -158,7 +158,7 @@ defmodule Kayrock.RecordBatch do
     deserialize(byte_size(record_batch_data), record_batch_data)
   end
 
-  @spec deserialize(integer, binary) :: nil | MessageSet.t() | t
+  @spec(deserialize(integer, binary) :: nil | :parse_error, MessageSet.t() | t)
   def deserialize(0, "") do
     nil
   end
@@ -173,6 +173,9 @@ defmodule Kayrock.RecordBatch do
       {magic, _, _, _, _} ->
         # old code
         MessageSet.deserialize(msg_set_data, magic)
+
+      _ ->
+        :parse_error
     end
   end
 
@@ -347,10 +350,16 @@ defmodule Kayrock.RecordBatch do
   # first_message crc: int32
   # first_message magic: int8
   defp get_magic_byte(msg_set_data) do
-    <<first_offset::64-signed, batch_length_or_message_size::32-signed,
-      partition_leader_epoch_or_first_crc::32-signed, magic::8-signed, rest::bits>> = msg_set_data
+    case msg_set_data do
+      <<first_offset::64-signed, batch_length_or_message_size::32-signed,
+        partition_leader_epoch_or_first_crc::32-signed, magic::8-signed, rest::bits>> ->
+        {magic, first_offset, batch_length_or_message_size, partition_leader_epoch_or_first_crc,
+         rest}
 
-    {magic, first_offset, batch_length_or_message_size, partition_leader_epoch_or_first_crc, rest}
+      _ ->
+        # Ignore other messages
+        nil
+    end
   end
 
   # length: varint
